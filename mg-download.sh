@@ -56,6 +56,7 @@ function checkFile {
     controlFile="${fileName}.control"
   fi
 }
+
 # Check if response threw error
 function checkCode {
   if [[ "${resBody}" =~ ^-?[0-9]+$ ]]; then
@@ -64,6 +65,7 @@ function checkCode {
     exit 1
   fi
 }
+
 # Prepare byte ranges, chunk positions, IV for large files
 # (1: chunk size, 2: file size, 3: IV)
 function largeFileInit {
@@ -111,10 +113,14 @@ function downloadFile {
   echo
 }
 function decryptFile {
-  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}.enc" | pv > "${3}"
+  local size=$(stat -c '%s' "${3}.enc")
+  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}.enc" |
+    pv -s "${size}" > "${3}"
 }
 function decryptChunk {
-  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}" | pv >> "${4}"
+  local size=$(stat -c '%s' "${3}")
+  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}" |
+    pv -s "${size}" >> "${4}"
 }
 
 # Basic sanity check
@@ -166,13 +172,10 @@ else
 fi
 
 # If link is folder and path is set, set search variable
-if [[ -n "${2}" ]] && [[ -n "${F7}" ]]; then
+if [[ -n "${2}" ]] && [[ "${linkType}" == "folder" ]]; then
   relPath="${2}"
   echo "Searching ${relPath} and downloading any match..."
-elif [[ -n "${2}" ]] && [[ -z "${F7}" ]] || [[ "${F6}" == "file" ]]; then
-  echo "2: ${2}"
-  echo "F7: ${F7}"
-  echo "F6: ${F6}"
+elif [[ -n "${2}" ]] && [[ "${linkType}" == "file" ]] || [[ "${F6}" == "file" ]]; then
   echo "Warning: No point in having a path set, you're downloading a file!"
 fi
 

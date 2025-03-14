@@ -1,0 +1,4 @@
+rev.2 -- fixed subfolder path detection
+         forgot to add pv to list of requirements
+         added size variable in decrypt functions so pv will give progress
+rev.1 -- initial private release
