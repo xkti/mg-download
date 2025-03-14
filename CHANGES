@@ -1,3 +1,4 @@
+rev.3 -- added '--compressed' arg to curl, some folders need it
 rev.2 -- fixed subfolder path detection
          forgot to add pv to list of requirements
          added size variable in decrypt functions so pv will give progress

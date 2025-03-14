@@ -19,7 +19,7 @@ function info {
   echo "Usage: ${0} LINK [RELATIVE/PATH/TO/FOLDER]"
   echo
   echo "mg-download.sh - weird as hell mega.nz downloader"
-  echo "rev.1 for beta testing | USE AT YOUR OWN RISK!"
+  echo "rev.3 for beta testing | USE AT YOUR OWN RISK!"
   echo "Please check attached README for detailed info and examples."
 }
 
@@ -195,7 +195,7 @@ if [[ "${linkType}" == "file" ]]; then
   fileIv="${hexKey:32:16}0000000000000000"
 
   # Send API request
-  resBody=$(curl -s -XPOST -d "${postBody}" "${API}")
+  resBody=$(curl -s --compressed -XPOST -d "${postBody}" "${API}")
   checkCode
 
   # File metadata (jq to delimited string for decryption)
@@ -290,7 +290,7 @@ else
   fKey=$(echo "${KEY}" | base64 -d 2>/dev/null | xxd -pu)
 
   # Send API request
-  resBody=$(curl -s -XPOST -d "${postBody}" "${API}")
+  resBody=$(curl -s --compressed -XPOST -d "${postBody}" "${API}")
   checkCode
 
   # Create array of folders as delimited strings containing:
