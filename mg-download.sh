@@ -232,13 +232,16 @@ if [[ "${linkType}" == "file" ]]; then
 
   # Big file download
   if [[ "${fileSize}" -gt "${chunkSize}" ]]; then
+    # byteRange, bytePosition, incrementIv
     largeFileInit "${chunkSize}" "${fileSize}" "${fileIv}"
     echo "Large file: ${fileSize} bytes (${#byteRange[@]} chunks to download)"
 
+    # Iterate over arrays to process each chunk.
+    # We're only handling one file so we can not parallelize it.
     for i in "${!byteRange[@]}"; do
       # TODO- clean variables, they're all over the place.
       # Chunk filename
-      chunkEnc="${fileName}.${bytePosition[$i]}.enc"
+      chunkName="${fileName}.${bytePosition[$i]}.enc"
       # Range to download
       chunkRange="${byteRange[$i]}"
       # End range to check if partial file matches with sum of finished chunks
@@ -246,19 +249,18 @@ if [[ "${linkType}" == "file" ]]; then
       # Current IV position
       chunkIv="${incrementIv[$i]}"
 
-      # Resume Incomplete download if control file exists (see checkFile)
+      # Resume incomplete download if control file exists (see checkFile)
       if [[ -n "${controlFile}" ]]; then
         grep -q "${bytePosition[$i]}" "${controlFile}"
         if [[ $? -eq 0 ]]; then
-          echo -n "."
           continue
         fi
         # Check if sum of completed chunks match local file
         if [[ "$(stat -c '%s' "${fileName}.bin")" -eq "${endRange}" ]]; then
-          echo -e "\n${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
+          echo -e "${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
           unset controlFile
         else
-          echo -e "\nERROR: Incomplete download has a size mismatch. Halting."
+          echo -e "ERROR: Incomplete download has a size mismatch. Halting."
           echo "Delete the offending files to continue."
           exit 1
         fi
@@ -267,11 +269,11 @@ if [[ "${linkType}" == "file" ]]; then
       # We need to fetch a new URL every time due to 60s expiry
       g="$(curl -s -XPOST -d "${postBody}" "${API}" | jq -r '.[].g')"
       url="${PROXY}/${g}/${byteRange[$i]}"
-      downloadFile "${chunkEnc}" "${url}"
-      decryptChunk "${fileKey}" "${chunkIv}" "${chunkEnc}" "${fileName}.bin"
+      downloadFile "${chunkName}" "${url}"
+      decryptChunk "${fileKey}" "${chunkIv}" "${chunkName}" "${fileName}.bin"
       echo "Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
       # TODO: Error handling, here and everything above and below.
-      rm "${chunkEnc}"
+      rm "${chunkName}"
       echo "${bytePosition[$i]}" >> "${fileName}.control"
     done
     mv "${fileName}.bin" "${fileName}"
@@ -322,6 +324,10 @@ else
         (.s | tostring)
     '
   ) )
+
+  if [[ ${#fileArray} -gt 250 ]]; then
+    echo "Large folder. This may take some time to parse..."
+  fi
 
   # Declare folder associative arrays
   declare -A folderAttr
