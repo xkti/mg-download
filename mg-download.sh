@@ -103,24 +103,19 @@ function largeFileInit {
 
 # Self-explanatory
 function downloadFile {
-  aria2c -x3 \
+  aria2c -x2 \
     --continue \
-    --summary-interval=0 \
-    --download-result=hide \
-    --console-log-level=warn \
-    -o "${1}" \
+    --quiet \
+    --out "${1}" \
     "${2}"
-  echo
 }
 function decryptFile {
   local size=$(stat -c '%s' "${3}.enc")
-  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}.enc" |
-    pv -s "${size}" > "${3}"
+  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}.enc" > "${3}"
 }
 function decryptChunk {
   local size=$(stat -c '%s' "${3}")
-  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}" |
-    pv -s "${size}" >> "${4}"
+  openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}" >> "${4}"
 }
 
 # Basic sanity check
