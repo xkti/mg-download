@@ -174,6 +174,7 @@ fi
 
 ## Big ass if statement to handle file links and folder links.
 # File download
+# We're only handling one file so we can not parallelize it.
 if [[ "${linkType}" == "file" ]]; then
   # Get full key.
   hexKey=$(echo "${KEY}" | base64 -d 2>/dev/null | xxd -pu -c32)
@@ -230,7 +231,6 @@ if [[ "${linkType}" == "file" ]]; then
     echo "Large file: ${fileSize} bytes (${#byteRange[@]} chunks to download)"
 
     # Iterate over arrays to process each chunk.
-    # We're only handling one file so we can not parallelize it.
     for i in "${!byteRange[@]}"; do
       # TODO- clean variables, they're all over the place.
       # Chunk filename
@@ -514,22 +514,26 @@ else
     echo "Large file: ${tmpSize} bytes (${#byteRange[@]} chunks to download)"
 
     for i in "${!byteRange[@]}"; do
-# TODO clean up this code, essentially needs to be almost same as file link big file handling, with some modifications
       # Set chunk and temporary filenames
-      chunkEnc="${tmpName}.${bytePosition[$i]}.enc"
+      chunkName="${tmpName}.${bytePosition[$i]}.enc"
+      # Range to download
+      chunkRange="${byteRange[$i]}"
+      # End range to check if partial....
+      endRange="${byteRange[$i]%%-*}"
+      # Current IV position
       chunkIv="${incrementIv[$i]}"
+
       # Incomplete download resume if set
       if [[ -n "${controlFile}" ]]; then
         grep -q "${bytePosition[$i]}" "${controlFile}"
         if [[ $? -eq 0 ]]; then
-          echo -n '.'
           continue
         fi
-        if [[ "$(stat -c '%s' "${tmpName}.bin")" -eq "${byteRange[$i]%%-*}" ]]; then
-          echo -e "\n${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
+        if [[ "$(stat -c '%s' "${tmpName}.bin")" -eq "${endRange}" ]]; then
+          echo -e "${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
           unset controlFile
         else
-          echo -e "\nERROR: Incomplete download has a size mismatch. Halting. (Expected $(stat -c '%s' "${tmpName}.bin"), got ${byteRange[$i]%%-*})"
+          echo -e "ERROR: Incomplete download has a size mismatch. Halting. (Expected $(stat -c '%s' "${tmpName}.bin"), got ${byteRange[$i]%%-*})"
           echo "Delete the offending file to continue."
           exit 1
         fi
@@ -538,11 +542,11 @@ else
       # We need to fetch a new URL every time due to 60s expiry
       g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
       url="${PROXY}/${g}/${byteRange[$i]}"
-      downloadFile "${chunkEnc}" "${url}"
-      decryptChunk "${tmpKey}" "${chunkIv}" "${chunkEnc}" "${tmpName}.bin"
+      downloadFile "${chunkName}" "${url}"
+      decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
       echo "Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
       # TODO: Error handling, here and everything above and below.
-      rm "${chunkEnc}"
+      rm "${chunkName}"
       echo "${bytePosition[$i]}" >> "${tmpName}.control"
     done
     unset byteRange bytePosition incrementIv
@@ -551,7 +555,8 @@ else
     echo "Download complete."
   # Otherwise, just do simple download.
   else
-    g="https://mg.owowo.workers.dev/$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
+    g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
+    url="${PROXY}/${g}"
     downloadFile "${tmpName}.enc" "${g}"
     decryptFile "${tmpKey}" "${tmpIv}" "${tmpName}"
     rm "${tmpName}.enc"
