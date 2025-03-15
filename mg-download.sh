@@ -10,6 +10,8 @@ trap 'exit 130' SIGINT
 PROXY="https://little-flower-ce56.wacky.workers.dev"
 # Large file chunk size (2GiB)
 chunkSize=2147483648
+# Max concurrent downloads (for folders only)
+maxThreads=4
 # Keep original IFS
 OIFS=$IFS
 
@@ -116,6 +118,78 @@ function decryptChunk {
   openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}" >> "${4}"
 }
 
+# Folder file handling
+# This is now its own function so we can parallelize it with &.
+function folderFileDownload {
+  # Body to POST to API.
+  filePostBody="[{\"a\":\"g\",\"n\":\"${index}\",\"g\":1}]"
+  # Putting various important variables into new ones
+  # to make the code a little more readable.
+  tmpSize="${fileSize[$index]}"
+  tmpName="${fileAttr[$index]}"
+  tmpKey="${fileKey[$index]}"
+  tmpIv="${fileIv[$index]}"
+
+  echo "[${index}]: ${tmpName}"
+  checkFile "${tmpName}" "${tmpSize}" "${index}"
+  if [[ "${SKIP}" -eq 1 ]]; then unset SKIP; continue; fi
+
+  # If file is larger than our set chunk size, then begin chunked download
+  if [[ "${tmpSize}" -ge "${chunkSize}" ]]; then
+    largeFileInit "${chunkSize}" "${tmpSize}" "${tmpIv}"
+    echo "[${index}] is large: ${tmpSize} bytes (${#byteRange[@]} chunks)"
+
+    for i in "${!byteRange[@]}"; do
+      # Set chunk and temporary filenames
+      chunkName="${tmpName}.${bytePosition[$i]}.enc"
+      # Range to download
+      chunkRange="${byteRange[$i]}"
+      # End range to check if partial download matches in size
+      endRange="${byteRange[$i]%%-*}"
+      # Current IV position
+      chunkIv="${incrementIv[$i]}"
+
+      # Incomplete download resume if set
+      if [[ -n "${controlFile}" ]]; then
+        grep -q "${bytePosition[$i]}" "${controlFile}"
+        if [[ $? -eq 0 ]]; then
+          continue
+        fi
+        if [[ "$(stat -c '%s' "${tmpName}.bin")" -eq "${endRange}" ]]; then
+          echo "[${index}]: ${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
+          unset controlFile
+        else
+          echo "ERROR: Incomplete download has a size mismatch. Halting. (Expected ${endRange}, got $(stat -c '%s' "${tmpName}.bin"))"
+          echo "Delete the offending file to continue."
+          exit 1
+        fi
+      fi
+
+      # We need to fetch a new URL every time due to 60s expiry
+      g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
+      url="${PROXY}/${g}/${byteRange[$i]}"
+      downloadFile "${chunkName}" "${url}"
+      decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
+      echo "[${index}] Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
+      # TODO: Error handling, here and everything above and below.
+      rm "${chunkName}"
+      echo "${bytePosition[$i]}" >> "${tmpName}.control"
+    done
+    unset byteRange bytePosition incrementIv
+    mv "${tmpName}.bin" "${tmpName}"
+    rm "${tmpName}.control"
+    echo "[${index}] finished."
+  # Otherwise, just do simple download.
+  else
+    g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
+    url="${PROXY}/${g}"
+    downloadFile "${tmpName}.enc" "${g}"
+    decryptFile "${tmpKey}" "${tmpIv}" "${tmpName}"
+    rm "${tmpName}.enc"
+    echo "[${index}] finished."
+  fi
+}
+
 # Basic sanity check
 if [[ -z "${1}" ]]; then
   echo "Error: No link specified."
@@ -219,7 +293,7 @@ if [[ "${linkType}" == "file" ]]; then
   fileSize=$( echo "${fileMetadata}" | cut -f2 -d@ )
   fileUrl=$( echo "${fileMetadata}" | cut -f3 -d@ )
 
-  echo "downloading [${ID}]: ${fileName}"
+  echo "[${ID}]: ${fileName}"
   # Check for existing file, chunks
   checkFile "${fileName}" "${fileSize}"
   if [[ "${SKIP}" -eq 1 ]]; then exit; fi
@@ -228,7 +302,7 @@ if [[ "${linkType}" == "file" ]]; then
   if [[ "${fileSize}" -gt "${chunkSize}" ]]; then
     # byteRange, bytePosition, incrementIv
     largeFileInit "${chunkSize}" "${fileSize}" "${fileIv}"
-    echo "Large file: ${fileSize} bytes (${#byteRange[@]} chunks to download)"
+    echo "[${index}] is large: ${fileSize} bytes (${#byteRange[@]} chunks)"
 
     # Iterate over arrays to process each chunk.
     for i in "${!byteRange[@]}"; do
@@ -250,10 +324,10 @@ if [[ "${linkType}" == "file" ]]; then
         fi
         # Check if sum of completed chunks match local file
         if [[ "$(stat -c '%s' "${fileName}.bin")" -eq "${endRange}" ]]; then
-          echo -e "${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
+          echo "[${ID}]: ${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
           unset controlFile
         else
-          echo -e "ERROR: Incomplete download has a size mismatch. Halting."
+          echo "ERROR: Incomplete download has a size mismatch. Halting."
           echo "Delete the offending files to continue."
           exit 1
         fi
@@ -264,7 +338,7 @@ if [[ "${linkType}" == "file" ]]; then
       url="${PROXY}/${g}/${byteRange[$i]}"
       downloadFile "${chunkName}" "${url}"
       decryptChunk "${fileKey}" "${chunkIv}" "${chunkName}" "${fileName}.bin"
-      echo "Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
+      echo "[${ID}]: Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
       # TODO: Error handling, here and everything above and below.
       rm "${chunkName}"
       echo "${bytePosition[$i]}" >> "${fileName}.control"
@@ -318,8 +392,8 @@ else
     '
   ) )
 
-  if [[ ${#fileArray} -gt 250 ]]; then
-    echo "Large folder. This may take some time to parse..."
+  if [[ ${#fileArray} -ge 200 ]]; then
+    echo "Large folder. This may take some time to parse... (${#fileArray} files)"
   fi
 
   # Declare folder associative arrays
@@ -495,72 +569,11 @@ else
 
   # Begin the downloading process
   for index in "${fileHash[@]}"; do
-    # Body to POST to API.
-    filePostBody="[{\"a\":\"g\",\"n\":\"${index}\",\"g\":1}]"
-    # Putting various important variables into new ones
-    # to make the code a little more readable.
-    tmpSize="${fileSize[$index]}"
-    tmpName="${fileAttr[$index]}"
-    tmpKey="${fileKey[$index]}"
-    tmpIv="${fileIv[$index]}"
-
-  echo "downloading [${index}]: ${tmpName}"
-  checkFile "${tmpName}" "${tmpSize}"
-  if [[ "${SKIP}" -eq 1 ]]; then unset SKIP; continue; fi
-
-  # If file is larger than our set chunk size, then begin chunked download
-  if [[ "${tmpSize}" -ge "${chunkSize}" ]]; then
-    largeFileInit "${chunkSize}" "${tmpSize}" "${tmpIv}"
-    echo "Large file: ${tmpSize} bytes (${#byteRange[@]} chunks to download)"
-
-    for i in "${!byteRange[@]}"; do
-      # Set chunk and temporary filenames
-      chunkName="${tmpName}.${bytePosition[$i]}.enc"
-      # Range to download
-      chunkRange="${byteRange[$i]}"
-      # End range to check if partial....
-      endRange="${byteRange[$i]%%-*}"
-      # Current IV position
-      chunkIv="${incrementIv[$i]}"
-
-      # Incomplete download resume if set
-      if [[ -n "${controlFile}" ]]; then
-        grep -q "${bytePosition[$i]}" "${controlFile}"
-        if [[ $? -eq 0 ]]; then
-          continue
-        fi
-        if [[ "$(stat -c '%s' "${tmpName}.bin")" -eq "${endRange}" ]]; then
-          echo -e "${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
-          unset controlFile
-        else
-          echo -e "ERROR: Incomplete download has a size mismatch. Halting. (Expected $(stat -c '%s' "${tmpName}.bin"), got ${byteRange[$i]%%-*})"
-          echo "Delete the offending file to continue."
-          exit 1
-        fi
-      fi
-
-      # We need to fetch a new URL every time due to 60s expiry
-      g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
-      url="${PROXY}/${g}/${byteRange[$i]}"
-      downloadFile "${chunkName}" "${url}"
-      decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
-      echo "Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
-      # TODO: Error handling, here and everything above and below.
-      rm "${chunkName}"
-      echo "${bytePosition[$i]}" >> "${tmpName}.control"
-    done
-    unset byteRange bytePosition incrementIv
-    mv "${tmpName}.bin" "${tmpName}"
-    rm "${tmpName}.control"
-    echo "Download complete."
-  # Otherwise, just do simple download.
-  else
-    g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
-    url="${PROXY}/${g}"
-    downloadFile "${tmpName}.enc" "${g}"
-    decryptFile "${tmpKey}" "${tmpIv}" "${tmpName}"
-    rm "${tmpName}.enc"
-    echo "Download complete."
-  fi
-done
+    # We will use jobs to see how many subshells are going, and if they are
+    # equal to $maxThreads, then we wait for one to finish before we move on.
+    if [[ $(jobs -r -p | wc -l) -ge $maxThreads ]]; then wait -n; fi
+    folderFileDownload &
+    # Blind attempt to curb workers ratelimit
+    sleep 0.5
+  done
 fi
