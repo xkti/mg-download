@@ -110,11 +110,9 @@ function downloadFile {
     "${2}"
 }
 function decryptFile {
-  local size=$(stat -c '%s' "${3}.enc")
   openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}.enc" > "${3}"
 }
 function decryptChunk {
-  local size=$(stat -c '%s' "${3}")
   openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}" >> "${4}"
 }
 
