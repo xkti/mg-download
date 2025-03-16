@@ -179,10 +179,10 @@ function folderFileDownload {
       # Some kind of error checking...
       retCode=$?
       if [[ $retCode -eq 7 ]]; then
-        return 2
+        return
       elif [[ $retCode -ne 0 ]]; then
         echo "[${index}] failed! Skipping file."
-        return 1
+        return
       fi
       decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
       echo "[${index}] Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
@@ -376,6 +376,11 @@ if [[ "${linkType}" == "file" ]]; then
   # Small file download | TODO error handling
     fileUrl="${PROXY}/${fileUrl}"
     downloadFile "${fileName}.enc" "${fileUrl}"
+    retCode=$?
+    if [[ $retCode -ne 0 ]]; then
+      echo "[${index}] failed to download!"
+      exit 1
+    fi
     decryptFile "${fileKey}" "${fileIv}" "${fileName}"
     rm "${fileName}.enc"
     echo "Download complete."
