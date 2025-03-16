@@ -1,9 +1,9 @@
 <!> Still very much a work in progress, but *should* (!!) be fully functional.
-<!> There is little to no error handling (for now). Things can explode!
+<!> There is very rudimentary error handling. Things can explode!
 NO WARRANTY OR GUARANTEE IS PROVIDED, USE AT YOUR OWN RISK.
 
 mg-download.sh - quirky little mega.nz downloader with quota bypass
-rev.2 for beta testing
+rev.4 for beta testing
 Usage: ./mg-download.sh FILE/FOLDER_LINK [Case/senstive/path/to/subfolder]
 
 Requirements:
@@ -22,6 +22,7 @@ Features:
   Transfer quota bypass via Cloudflare Workers
   Partial download resume support
   Download acceleration with aria2
+  Multiple concurrent downloads
 
 Supported links:
   File:      ./mg-download.sh https://mega.nz/file/xxx#xxxxxx
@@ -53,6 +54,10 @@ Limitations:
 
 - Subfolder links (folder/xxx#xxxxx/folder/xxx) are not supported, but
   you can specify the path to it to get the same behaviour. (see above)
+
+- Concurrent downloads work under subshells. It's a pain to deal with so
+  it could be buggy or entirely fine. Also because of it, we can't
+  reliably see the download/decryption progress anymore. Just wait!
 
 Quota bypass:
   Attached is an index.js file. It is a rudimentary proxy that will accept

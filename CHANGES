@@ -1,3 +1,12 @@
+rev.4 -- moved file downloading logic for folders into function
+         made folder downloading faster by downloading in parallel (&)
+         disabled download/decryption progress because of above change
+         added very rudimentary error handling for downloading
+         made output more verbose
+         added another edge case handling for partial downloads
+         lowered aria2's max connection from 3 to 2
+         cleaned up some variables
+         added more comments
 rev.3 -- added '--compressed' arg to curl, some folders need it
 rev.2 -- fixed subfolder path detection
          forgot to add pv to list of requirements
