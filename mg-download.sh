@@ -3,7 +3,7 @@
 # Uncomment for debug
 #set -x
 # Kills script if ctrl+c, without it loops continue iterating
-trap 'exit 130' SIGINT
+trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
 
 ## Constants
 # Workers proxy to bypass quota (no trailing /, USE YOUR OWN!)
@@ -30,6 +30,7 @@ function info {
 function checkFile {
   local fileName="${1}"
   local fileSize="${2}"
+  local id="${3}"
 
   # If file exists...
   if [[ -f "${1}" ]]; then
@@ -43,7 +44,7 @@ function checkFile {
       exit 1
     else
       # If good, just skip.
-      echo "File already exists. Skipping."
+      echo "[${id}] already exists. Skipping."
       SKIP=1
     fi
   # If control file exists...
@@ -54,8 +55,13 @@ function checkFile {
     # and later resumed, we will grep through the control file to see where we left
     # off, and ultimately resume from there. We also check the incomplete file size
     # in case the user interrupts the decryption, aria2 right before completion, etc.
-    echo "Incomplete download found. Attempting resume. [BETA]"
+    echo "[${id}]: Incomplete download found. Attempting resume. [BETA]"
     controlFile="${fileName}.control"
+  # If control files does NOT exist but decrypted chunk does..
+  elif [[ ! -f "${fileName}.control" ]] && [[ -f "${fileName}.bin" ]]; then
+    # Silently remove decrypted chunk and let it continue
+    # For edge case when only first chunk is done and it's mid-decrypting
+    rm "${fileName}.bin"
   fi
 }
 
@@ -110,6 +116,7 @@ function downloadFile {
     --quiet \
     --out "${1}" \
     "${2}"
+  return
 }
 function decryptFile {
   openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}.enc" > "${3}"
@@ -132,7 +139,7 @@ function folderFileDownload {
 
   echo "[${index}]: ${tmpName}"
   checkFile "${tmpName}" "${tmpSize}" "${index}"
-  if [[ "${SKIP}" -eq 1 ]]; then unset SKIP; continue; fi
+  if [[ "${SKIP}" -eq 1 ]]; then return; fi
 
   # If file is larger than our set chunk size, then begin chunked download
   if [[ "${tmpSize}" -ge "${chunkSize}" ]]; then
@@ -169,6 +176,14 @@ function folderFileDownload {
       g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
       url="${PROXY}/${g}/${byteRange[$i]}"
       downloadFile "${chunkName}" "${url}"
+      # Some kind of error checking...
+      retCode=$?
+      if [[ $retCode -eq 7 ]]; then
+        return 2
+      elif [[ $retCode -ne 0 ]]; then
+        echo "[${index}] failed! Skipping file."
+        return 1
+      fi
       decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
       echo "[${index}] Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
       # TODO: Error handling, here and everything above and below.
@@ -183,7 +198,14 @@ function folderFileDownload {
   else
     g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
     url="${PROXY}/${g}"
-    downloadFile "${tmpName}.enc" "${g}"
+    downloadFile "${tmpName}.enc" "${url}"
+    retCode=$?
+    if [[ $retCode -eq 7 ]]; then
+      return
+    elif [[ $retCode -ne 0 ]]; then
+      echo "[${index}] failed! Skipping file."
+      return
+    fi
     decryptFile "${tmpKey}" "${tmpIv}" "${tmpName}"
     rm "${tmpName}.enc"
     echo "[${index}] finished."
@@ -295,7 +317,7 @@ if [[ "${linkType}" == "file" ]]; then
 
   echo "[${ID}]: ${fileName}"
   # Check for existing file, chunks
-  checkFile "${fileName}" "${fileSize}"
+  checkFile "${fileName}" "${fileSize}" "${ID}"
   if [[ "${SKIP}" -eq 1 ]]; then exit; fi
 
   # Big file download
@@ -306,7 +328,6 @@ if [[ "${linkType}" == "file" ]]; then
 
     # Iterate over arrays to process each chunk.
     for i in "${!byteRange[@]}"; do
-      # TODO- clean variables, they're all over the place.
       # Chunk filename
       chunkName="${fileName}.${bytePosition[$i]}.enc"
       # Range to download
@@ -337,6 +358,11 @@ if [[ "${linkType}" == "file" ]]; then
       g="$(curl -s -XPOST -d "${postBody}" "${API}" | jq -r '.[].g')"
       url="${PROXY}/${g}/${byteRange[$i]}"
       downloadFile "${chunkName}" "${url}"
+      retCode=$?
+      if [[ $retCode -ne 0 ]]; then
+        echo "[${index}] failed to download!"
+        exit 1
+      fi
       decryptChunk "${fileKey}" "${chunkIv}" "${chunkName}" "${fileName}.bin"
       echo "[${ID}]: Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
       # TODO: Error handling, here and everything above and below.
@@ -348,6 +374,7 @@ if [[ "${linkType}" == "file" ]]; then
     echo "Download complete."
   else
   # Small file download | TODO error handling
+    fileUrl="${PROXY}/${fileUrl}"
     downloadFile "${fileName}.enc" "${fileUrl}"
     decryptFile "${fileKey}" "${fileIv}" "${fileName}"
     rm "${fileName}.enc"
@@ -392,8 +419,8 @@ else
     '
   ) )
 
-  if [[ ${#fileArray} -ge 200 ]]; then
-    echo "Large folder. This may take some time to parse... (${#fileArray} files)"
+  if [[ ${#fileArray[@]} -ge 200 ]]; then
+    echo "Large folder. This may take some time to parse... (${#fileArray[@]} files)"
   fi
 
   # Declare folder associative arrays
@@ -573,7 +600,8 @@ else
     # equal to $maxThreads, then we wait for one to finish before we move on.
     if [[ $(jobs -r -p | wc -l) -ge $maxThreads ]]; then wait -n; fi
     folderFileDownload &
-    # Blind attempt to curb workers ratelimit
-    sleep 0.5
   done
 fi
+
+wait
+echo "Done!"
