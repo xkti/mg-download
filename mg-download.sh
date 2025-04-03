@@ -181,7 +181,7 @@ function folderFileDownload {
       if [[ $retCode -eq 7 ]]; then
         return
       elif [[ $retCode -ne 0 ]]; then
-        echo "[${index}] failed! Skipping file."
+        echo "[${index}] failed with code ${retCode}! Skipping file."
         return
       fi
       decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
@@ -203,7 +203,7 @@ function folderFileDownload {
     if [[ $retCode -eq 7 ]]; then
       return
     elif [[ $retCode -ne 0 ]]; then
-      echo "[${index}] failed! Skipping file."
+      echo "[${index}] failed with code ${retCode}! Skipping file."
       return
     fi
     decryptFile "${tmpKey}" "${tmpIv}" "${tmpName}"
@@ -360,7 +360,7 @@ if [[ "${linkType}" == "file" ]]; then
       downloadFile "${chunkName}" "${url}"
       retCode=$?
       if [[ $retCode -ne 0 ]]; then
-        echo "[${index}] failed to download!"
+        echo "[${index}] failed to download with code ${retCode}!"
         exit 1
       fi
       decryptChunk "${fileKey}" "${chunkIv}" "${chunkName}" "${fileName}.bin"
@@ -378,7 +378,7 @@ if [[ "${linkType}" == "file" ]]; then
     downloadFile "${fileName}.enc" "${fileUrl}"
     retCode=$?
     if [[ $retCode -ne 0 ]]; then
-      echo "[${index}] failed to download!"
+      echo "[${index}] failed to download with code ${retCode}!"
       exit 1
     fi
     decryptFile "${fileKey}" "${fileIv}" "${fileName}"
@@ -604,6 +604,7 @@ else
     # We will use jobs to see how many subshells are going, and if they are
     # equal to $maxThreads, then we wait for one to finish before we move on.
     if [[ $(jobs -r -p | wc -l) -ge $maxThreads ]]; then wait -n; fi
+    sleep 0.3
     folderFileDownload &
   done
 fi
