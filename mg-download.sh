@@ -324,7 +324,7 @@ if [[ "${linkType}" == "file" ]]; then
   if [[ "${fileSize}" -gt "${chunkSize}" ]]; then
     # byteRange, bytePosition, incrementIv
     largeFileInit "${chunkSize}" "${fileSize}" "${fileIv}"
-    echo "[${index}] is large: ${fileSize} bytes (${#byteRange[@]} chunks)"
+    echo "[${ID}] is large: ${fileSize} bytes (${#byteRange[@]} chunks)"
 
     # Iterate over arrays to process each chunk.
     for i in "${!byteRange[@]}"; do
@@ -360,7 +360,7 @@ if [[ "${linkType}" == "file" ]]; then
       downloadFile "${chunkName}" "${url}"
       retCode=$?
       if [[ $retCode -ne 0 ]]; then
-        echo "[${index}] failed to download with code ${retCode}!"
+        echo "[${ID}] failed to download with code ${retCode}!"
         exit 1
       fi
       decryptChunk "${fileKey}" "${chunkIv}" "${chunkName}" "${fileName}.bin"
@@ -378,7 +378,7 @@ if [[ "${linkType}" == "file" ]]; then
     downloadFile "${fileName}.enc" "${fileUrl}"
     retCode=$?
     if [[ $retCode -ne 0 ]]; then
-      echo "[${index}] failed to download with code ${retCode}!"
+      echo "[${ID}] failed to download with code ${retCode}!"
       exit 1
     fi
     decryptFile "${fileKey}" "${fileIv}" "${fileName}"
