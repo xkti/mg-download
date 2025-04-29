@@ -16,7 +16,7 @@ export default {
       return new Response(`User-agent: *\nDisallow: /`)
     // Hello world
     if (texts.has(loc))
-      return new Response(texts.get(loc))
+      return new Response(texts.get(loc), { status: 404 })
 
     // Only accept userstorage links
     if (loc.includes("userstorage.mega.co.nz")) {
@@ -30,7 +30,7 @@ export default {
       let response = await fetch(loc, init)
       return response
     } else {
-      return new Response("404", { status: 404 })
+      return new Response("403", { status: 403 })
     }
   }
 }
