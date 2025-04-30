@@ -116,13 +116,26 @@ function downloadFile {
     --quiet \
     --out "${1}" \
     "${2}"
-  return
 }
 function decryptFile {
   openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}.enc" > "${3}"
 }
 function decryptChunk {
   openssl enc -aes-128-ctr -d -K "${1}" -iv "${2}" -in "${3}" >> "${4}"
+}
+
+# Fetch download URL
+# (1: post body, 2: api endpoint)
+function fetchDownloadUrl {
+  local retry
+  until g="$(curl -s -XPOST -d "${1}" "${2}" | jq -er '.[].g')"; do
+   sleep 1
+   retry=$((++retry))
+   if [[ "${retry}" -eq 5 ]]; then
+     echo 'Error: Failed to get url after 5 attempts!'
+     exit 1
+   fi
+  done
 }
 
 # Folder file handling
@@ -137,7 +150,7 @@ function folderFileDownload {
   tmpKey="${fileKey[$index]}"
   tmpIv="${fileIv[$index]}"
 
-  echo "[${index}]: ${tmpName}"
+  echo "[${index}]: Downloading ${tmpName}"
   checkFile "${tmpName}" "${tmpSize}" "${index}"
   if [[ "${SKIP}" -eq 1 ]]; then return; fi
 
@@ -167,26 +180,35 @@ function folderFileDownload {
           unset controlFile
         else
           echo "ERROR: Incomplete download has a size mismatch. Halting. (Expected ${endRange}, got $(stat -c '%s' "${tmpName}.bin"))"
-          echo "Delete the offending file to continue."
+          echo "We can not resume this file. Delete the offending file to continue."
           exit 1
         fi
       fi
 
       # We need to fetch a new URL every time due to 60s expiry
-      g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
-      url="${PROXY}/${g}/${byteRange[$i]}"
-      downloadFile "${chunkName}" "${url}"
-      # Some kind of error checking...
-      retCode=$?
-      if [[ $retCode -eq 7 ]]; then
-        return
-      elif [[ $retCode -ne 0 ]]; then
-        echo "[${index}] failed with code ${retCode}! Skipping file."
-        return
-      fi
+      # Now this has error checking + retries. yay.
+      local retry
+      echo "[${index}] Downloading chunk $(( $i + 1 ))/${#byteRange[@]}.."
+      until fetchDownloadUrl "${filePostBody}" "${API}"
+            url="${PROXY}/${g}/${byteRange[$i]}"
+            downloadFile "${chunkName}" "${url}"; do
+        retCode=$?
+        retry=$((++retry))
+        if [[ $retCode -eq 7 ]]; then
+          return
+        elif [[ $retry -eq 5 ]]; then
+          echo "[${index}] failed to download after 5 attempts. Skipping. (TODO: add file cleanup)"
+          return 1
+        elif [[ $retCode -ne 0 ]]; then
+          echo "[${index}] failed to download with code ${retCode}! Retrying. (${retry}/5)"
+        fi
+      done
+      unset retry
+
+      echo "[${index}]: Decrypting chunk $(( $i + 1 ))/${#byteRange[@]}.."
       decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
-      echo "[${index}] Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
-      # TODO: Error handling, here and everything above and below.
+      # TODO: error check?
+      echo "[${index}] Chunk $(( $i + 1 ))/${#byteRange[@]} complete."
       rm "${chunkName}"
       echo "${bytePosition[$i]}" >> "${tmpName}.control"
     done
@@ -196,16 +218,24 @@ function folderFileDownload {
     echo "[${index}] finished."
   # Otherwise, just do simple download.
   else
-    g="$(curl -s -XPOST -d "${filePostBody}" "${API}" | jq -r '.[].g')"
-    url="${PROXY}/${g}"
-    downloadFile "${tmpName}.enc" "${url}"
-    retCode=$?
-    if [[ $retCode -eq 7 ]]; then
-      return
-    elif [[ $retCode -ne 0 ]]; then
-      echo "[${index}] failed with code ${retCode}! Skipping file."
-      return
-    fi
+    local retry
+    until fetchDownloadUrl "${filePostBody}" "${API}"
+          url="${PROXY}/${g}"
+          downloadFile "${tmpName}.enc" "${url}"; do
+      retCode=$?
+      retry=$((++retry))
+      if [[ $retCode -eq 7 ]]; then
+        return
+      elif [[ $retry -eq 5 ]]; then
+        echo "[${index}] failed to download after 5 attempts. Skipping. (TODO: add file cleanup)"
+        return 1
+      elif [[ $retCode -ne 0 ]]; then
+        echo "[${index}] failed to download with code ${retCode}! Retrying. (${retry}/5)"
+      fi
+    done
+    unset retry
+
+    echo "[${index}]: Decrypting.."
     decryptFile "${tmpKey}" "${tmpIv}" "${tmpName}"
     rm "${tmpName}.enc"
     echo "[${index}] finished."
