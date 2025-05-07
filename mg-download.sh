@@ -38,13 +38,12 @@ function checkFile {
     local checkSize=$(stat -c '%s' "${fileName}")
     # If bad, then error and halt.
     if [[ "${checkSize}" -ne "${fileSize}" ]]; then
-      echo "ERROR: File exists but size mismatch! Halting."
-      echo "Expected ${fileSize} bytes, got ${checkSize} bytes"
-      echo "Delete the offending file to continue."
+      echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (File exists, but size mismatch: expected ${fileSize}, got ${checkSize})"
+      echo -e "\e[0;31mERROR\e[0m   | Delete the offending file to continue."
       exit 1
     else
       # If good, just skip.
-      echo "[${id}] already exists. Skipping."
+      echo -e "\e[0;33mNOTICE\e[0m  | ${fileName} already exists. Skipping."
       SKIP=1
     fi
   # If control file exists...
@@ -55,7 +54,7 @@ function checkFile {
     # and later resumed, we will grep through the control file to see where we left
     # off, and ultimately resume from there. We also check the incomplete file size
     # in case the user interrupts the decryption, aria2 right before completion, etc.
-    echo "[${id}]: Incomplete download found. Attempting resume. [BETA]"
+    echo -e "\e[0;33mNOTICE\e[0m  | ${fileName} appears incomplete. Attempting resume. [BETA]"
     controlFile="${fileName}.control"
   # If control files does NOT exist but decrypted chunk does..
   elif [[ ! -f "${fileName}.control" ]] && [[ -f "${fileName}.bin" ]]; then
@@ -68,8 +67,8 @@ function checkFile {
 # Check if response threw error
 function checkCode {
   if [[ "${resBody}" =~ ^-?[0-9]+$ ]]; then
-    echo "Error: Got ${resBody} from API."
-    echo "Check https://github.com/meganz/sdk/blob/master/include/mega/types.h#L189 for info."
+    echo -e "\e[0;31mERROR\e[0m   | Got ${resBody} from API."
+    echo -e "\e[0;31mERROR\e[0m   | Check https://github.com/meganz/sdk/blob/master/include/mega/types.h#L189 for info."
     exit 1
   fi
 }
@@ -132,7 +131,7 @@ function fetchDownloadUrl {
    sleep 1
    retry=$((++retry))
    if [[ "${retry}" -eq 5 ]]; then
-     echo 'Error: Failed to get url after 5 attempts!'
+     echo -e '\e[0;31mERROR\e[0m   | Failed to get URL after 5 attempts! Skipping.'
      exit 1
    fi
   done
@@ -150,14 +149,13 @@ function folderFileDownload {
   tmpKey="${fileKey[$index]}"
   tmpIv="${fileIv[$index]}"
 
-  echo "[${index}]: Downloading ${tmpName}"
   checkFile "${tmpName}" "${tmpSize}" "${index}"
   if [[ "${SKIP}" -eq 1 ]]; then return; fi
 
   # If file is larger than our set chunk size, then begin chunked download
   if [[ "${tmpSize}" -ge "${chunkSize}" ]]; then
     largeFileInit "${chunkSize}" "${tmpSize}" "${tmpIv}"
-    echo "[${index}] is large: ${tmpSize} bytes (${#byteRange[@]} chunks)"
+    echo -e "\e[0;33mCHUNKS\e[0m  | ${tmpName} (${#byteRange[@]} chunks, ${tmpSize} bytes)"
 
     for i in "${!byteRange[@]}"; do
       # Set chunk and temporary filenames
@@ -176,11 +174,12 @@ function folderFileDownload {
           continue
         fi
         if [[ "$(stat -c '%s' "${tmpName}.bin")" -eq "${endRange}" ]]; then
-          echo "[${index}]: ${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
+          echo -e "\e[0;33mCHUNKS\e[0m  | ${tmpName} (${i}/${#byteRange[@]} chunks complete. Resuming.)"
           unset controlFile
         else
-          echo "ERROR: Incomplete download has a size mismatch. Halting. (Expected ${endRange}, got $(stat -c '%s' "${tmpName}.bin"))"
-          echo "We can not resume this file. Delete the offending file to continue."
+          echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed. (Size mismatch, expected ${endRange}, got $(stat -c '%s' "${tmpName}.bin"))"
+          echo -e "\e[0;31mERROR\e[0m   | Unable to resume. Delete the offending file(s) to continue."
+          # TODO make report file/log maybe? or just delete.
           exit 1
         fi
       fi
@@ -188,7 +187,7 @@ function folderFileDownload {
       # We need to fetch a new URL every time due to 60s expiry
       # Now this has error checking + retries. yay.
       local retry
-      echo "[${index}] Downloading chunk $(( $i + 1 ))/${#byteRange[@]}.."
+      echo -e "\e[0;33mDOWNLOAD\e[0m| [Chunk $(( $i + 1 ))/${#byteRange[@]}] ${tmpName}"
       until fetchDownloadUrl "${filePostBody}" "${API}"
             url="${PROXY}/${g}/${byteRange[$i]}"
             downloadFile "${chunkName}" "${url}"; do
@@ -197,27 +196,28 @@ function folderFileDownload {
         if [[ $retCode -eq 7 ]]; then
           return
         elif [[ $retry -eq 5 ]]; then
-          echo "[${index}] failed to download after 5 attempts. Skipping. (TODO: add file cleanup)"
+          echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed after 5 attempts. Skipping. (TODO: add file cleanup)"
           return 1
         elif [[ $retCode -ne 0 ]]; then
-          echo "[${index}] failed to download with code ${retCode}! Retrying. (${retry}/5)"
+          echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed with code ${retCode}! Retrying. (${retry}/5)"
         fi
       done
       unset retry
 
-      echo "[${index}]: Decrypting chunk $(( $i + 1 ))/${#byteRange[@]}.."
+      echo -e "DECRYPT | [Chunk $(( $i + 1 ))/${#byteRange[@]}] ${tmpName}"
       decryptChunk "${tmpKey}" "${chunkIv}" "${chunkName}" "${tmpName}.bin"
       # TODO: error check?
-      echo "[${index}] Chunk $(( $i + 1 ))/${#byteRange[@]} complete."
       rm "${chunkName}"
       echo "${bytePosition[$i]}" >> "${tmpName}.control"
+      echo -e "\e[0;32mDONE\e[0m    | [Chunk $(( $i + 1 ))/${#byteRange[@]}] ${tmpName}"
     done
     unset byteRange bytePosition incrementIv
     mv "${tmpName}.bin" "${tmpName}"
     rm "${tmpName}.control"
-    echo "[${index}] finished."
+    echo -e "\e[0;32mDONE\e[0m    | ${tmpName}"
   # Otherwise, just do simple download.
   else
+    echo -e "\e[0;33mDOWNLOAD\e[0m| ${tmpName}"
     local retry
     until fetchDownloadUrl "${filePostBody}" "${API}"
           url="${PROXY}/${g}"
@@ -227,24 +227,24 @@ function folderFileDownload {
       if [[ $retCode -eq 7 ]]; then
         return
       elif [[ $retry -eq 5 ]]; then
-        echo "[${index}] failed to download after 5 attempts. Skipping. (TODO: add file cleanup)"
+        echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed after 5 attempts. Skipping. (TODO: add file cleanup)"
         return 1
       elif [[ $retCode -ne 0 ]]; then
-        echo "[${index}] failed to download with code ${retCode}! Retrying. (${retry}/5)"
+        echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed with code ${retCode}! Retrying. (${retry}/5)"
       fi
     done
     unset retry
 
-    echo "[${index}]: Decrypting.."
+    echo "DECRYPT | ${tmpName}"
     decryptFile "${tmpKey}" "${tmpIv}" "${tmpName}"
     rm "${tmpName}.enc"
-    echo "[${index}] finished."
+    echo -e "\e[0;32mDONE\e[0m    | ${tmpName}"
   fi
 }
 
 # Basic sanity check
 if [[ -z "${1}" ]]; then
-  echo "Error: No link specified."
+  echo "\e[0;31mERROR\e[0m   | No link specified."
   info
   exit 2
 fi
@@ -255,7 +255,7 @@ KEY=$(echo "$1" | cut -f2 -d# | cut -f1 -d/ | tr '\-_' '+/')
 
 # Stupid sanity check
 if [[ -z "${ID}" ]] || [[ "${KEY}" == *":"* ]] || [[ -z "${KEY}" ]]; then
-  echo "Error: Bad link."
+  echo "\e[0;31mERROR\e[0m   | Bad URL."
   exit 1
 fi
 
@@ -275,18 +275,18 @@ elif [[ "${linkType}" == "folder" ]]; then
   if [[ -n "${F6}" ]]; then
     if [[ "${F6}" == "file" ]]; then
       F7=$(echo "${1}" | cut -f7 -d/)
-      echo "File detected in folder link. Downloading."
+      echo "\e[0;33mNOTICE\e[0m  | File detected in folder link. Downloading."
     elif [[ "${F6}" == "folder" ]]; then
-      echo "Error: Subfolder downloading by link isn't supported."
-      echo
-      echo "Please specify it as a path like so:"
-      echo "./${0} LINK \"Relative/path/without/trailing/slash\""
+      echo "\e[0;31mERROR\e[0m   | Subfolder downloading by link isn't supported."
+      echo "\e[0;31mERROR\e[0m   | Please specify it as a path like so:"
+      echo "\e[0;31mERROR\e[0m   | ./${0} LINK \"Relative/path/without/trailing/slash\""
       exit 1
     fi
   fi
 else
-  echo "Error: Can't determine whether link is a file or a folder."
-  echo "Legacy URLs are not supported, sorry."
+  # TODO: Handle legacy urls.
+  echo "\e[0;31mERROR\e[0m   | Can't determine whether link is a file or a folder."
+  echo "\e[0;31mERROR\e[0m   | Legacy URLs are not supported, sorry."
   exit 1
 fi
 
@@ -319,7 +319,7 @@ if [[ "${linkType}" == "file" ]]; then
   checkCode
 
   # File metadata (jq to delimited string for decryption)
-  # .at (attributes [file name]), .s (size), .g (download link)
+  # .at (attributes [file name]), .s (size)
   # (b64c function: clean url-safe base64 to standard base64)
   fileMetadata=( $(
     echo "${resBody}" |
@@ -327,8 +327,7 @@ if [[ "${linkType}" == "file" ]]; then
       def b64c: gsub("-"; "+") | gsub("_"; "/");
       .[] |
       (.at | b64c) + "@" +
-      (.s | tostring) + "@" +
-      (.g)
+      (.s | tostring)
     '
   ) )
 
@@ -343,9 +342,7 @@ if [[ "${linkType}" == "file" ]]; then
     jq -r .n
   )
   fileSize=$( echo "${fileMetadata}" | cut -f2 -d@ )
-  fileUrl=$( echo "${fileMetadata}" | cut -f3 -d@ )
 
-  echo "[${ID}]: ${fileName}"
   # Check for existing file, chunks
   checkFile "${fileName}" "${fileSize}" "${ID}"
   if [[ "${SKIP}" -eq 1 ]]; then exit; fi
@@ -354,7 +351,7 @@ if [[ "${linkType}" == "file" ]]; then
   if [[ "${fileSize}" -gt "${chunkSize}" ]]; then
     # byteRange, bytePosition, incrementIv
     largeFileInit "${chunkSize}" "${fileSize}" "${fileIv}"
-    echo "[${ID}] is large: ${fileSize} bytes (${#byteRange[@]} chunks)"
+    echo -e "\e[0;33mCHUNKS\e[0m  | ${fileName} (${#byteRange[@]} chunks, ${fileSize} bytes)"
 
     # Iterate over arrays to process each chunk.
     for i in "${!byteRange[@]}"; do
@@ -375,45 +372,63 @@ if [[ "${linkType}" == "file" ]]; then
         fi
         # Check if sum of completed chunks match local file
         if [[ "$(stat -c '%s' "${fileName}.bin")" -eq "${endRange}" ]]; then
-          echo "[${ID}]: ${i}/${#byteRange[@]} chunks already downloaded. Resuming!"
+          echo -e "\e[0;33mCHUNKS\e[0m  | ${fileName} (${i}/${#byteRange[@]} chunks complete. Resuming.)"
           unset controlFile
         else
-          echo "ERROR: Incomplete download has a size mismatch. Halting."
-          echo "Delete the offending files to continue."
+          echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (Size mismatch, expected ${endRange}, got $(stat -c '%s' "${fileName}.bin"))"
+          echo -e "\e[0;31mERROR\e[0m   | Unable to resume. Delete the offending file(s) to continue."
+          # todo report to file for summary
           exit 1
         fi
       fi
 
       # We need to fetch a new URL every time due to 60s expiry
-      g="$(curl -s -XPOST -d "${postBody}" "${API}" | jq -r '.[].g')"
-      url="${PROXY}/${g}/${byteRange[$i]}"
-      downloadFile "${chunkName}" "${url}"
-      retCode=$?
-      if [[ $retCode -ne 0 ]]; then
-        echo "[${ID}] failed to download with code ${retCode}!"
-        exit 1
-      fi
+      echo -e "\e[0;33mDOWNLOAD\e[0m| [Chunk $(( $i + 1 ))/${#byteRange[@]}] ${fileName}"
+      until fetchDownloadUrl "${postBody}" "${API}"
+            url="${PROXY}/${g}/${byteRange[$i]}"
+            downloadFile "${chunkName}" "${url}"; do
+        retCode=$?
+        retry=$((++retry))
+        if [[ $retry -eq 5 ]]; then
+          echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed after 5 attempts. Exiting."
+          exit 1
+        elif [[ $retCode -ne 0 ]]; then
+          echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed with code ${retCode}! Retrying. (${retry}/5)"
+        fi
+      done
+      unset retry
+
+      echo -e "DECRYPT | [Chunk $(( $i + 1 ))/${#byteRange[@]}] ${fileName}"
       decryptChunk "${fileKey}" "${chunkIv}" "${chunkName}" "${fileName}.bin"
-      echo "[${ID}]: Chunk $(( $i + 1 ))/${#byteRange[@]} downloaded and decrypted."
       # TODO: Error handling, here and everything above and below.
       rm "${chunkName}"
       echo "${bytePosition[$i]}" >> "${fileName}.control"
+      echo -e "\e[0;32mDONE\e[0m    | [Chunk $(( $i + 1 ))/${#byteRange[@]}] ${fileName}"
     done
     mv "${fileName}.bin" "${fileName}"
     rm "${fileName}.control"
-    echo "Download complete."
+    echo -e "\e[0;32mDONE\e[0m    | Finished!"
   else
-  # Small file download | TODO error handling
-    fileUrl="${PROXY}/${fileUrl}"
-    downloadFile "${fileName}.enc" "${fileUrl}"
-    retCode=$?
-    if [[ $retCode -ne 0 ]]; then
-      echo "[${ID}] failed to download with code ${retCode}!"
-      exit 1
-    fi
+  # Small file download
+    echo -e "\e[0;33mDOWNLOAD\e[0m| ${fileName}"
+    until fetchDownloadUrl "${postBody}" "${API}"
+          fileUrl="${PROXY}/${g}"
+          downloadFile "${fileName}.enc" "${fileUrl}"; do
+      retCode=$?
+      retry=$((++retry))
+      if [[ $retry -eq 5 ]]; then
+        echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed after 5 attempts. Exiting."
+        exit 1
+      elif [[ $retCode -ne 0 ]]; then
+        echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed with code ${retCode}! Retrying. (${retry}/5)"
+      fi
+    done
+    unset retry
+
+    echo "DECRYPT | ${fileName}"
     decryptFile "${fileKey}" "${fileIv}" "${fileName}"
     rm "${fileName}.enc"
-    echo "Download complete."
+    echo -e "\e[0;32mDONE\e[0m    | ${tmpName}"
   fi
 else
   # Folder download
@@ -455,7 +470,7 @@ else
   ) )
 
   if [[ ${#fileArray[@]} -ge 200 ]]; then
-    echo "Large folder. This may take some time to parse... (${#fileArray[@]} files)"
+    echo -e "\e[0;33mNOTICE\e[0m  | Large folder. This may take some time to parse... (${#fileArray[@]} files)"
   fi
 
   # Declare folder associative arrays
@@ -608,12 +623,12 @@ else
       fi
     done
     if [[ -z "${searchList}" ]]; then
-      echo "No matches found!"
+      echo -e "\e[0;31mERROR\e[0m   | No matches found!"
       exit 1
     fi
     # Reassign listing array to just results
     theList=( "${searchList[@]}" )
-    echo "Found ${#theList[@]} match(es)!"
+    echo -e "\e[0;33mNOTICE\e[0m  | Found ${#theList[@]} match(es)!"
   fi
 
   # Iterate through array to set fileAttr to have full path name
@@ -640,4 +655,5 @@ else
 fi
 
 wait
-echo "Done!"
+echo -e "\e[0;33mNOTICE\e[0m  | Done!"
+# todo: check for failed files
