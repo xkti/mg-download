@@ -1,3 +1,7 @@
+rev.5 -- added proper retry logic for downloading for files/folders
+         removed file id from output, replacee with filename
+         made output more verbose and consistent
+         tweaked worker script to give 4xx on /, this fixes empty downloads
 rev.4 -- moved file downloading logic for folders into function
          made folder downloading faster by downloading in parallel (&)
          disabled download/decryption progress because of above change

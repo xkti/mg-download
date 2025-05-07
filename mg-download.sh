@@ -21,7 +21,7 @@ function info {
   echo "Usage: ${0} LINK [RELATIVE/PATH/TO/FOLDER]"
   echo
   echo "mg-download.sh - weird as hell mega.nz downloader"
-  echo "rev.4 for beta testing | USE AT YOUR OWN RISK!"
+  echo "rev.5 for beta testing | USE AT YOUR OWN RISK!"
   echo "Please check attached README for detailed info and examples."
 }
 
