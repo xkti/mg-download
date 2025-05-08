@@ -1,9 +1,9 @@
-<!> Still very much a work in progress, but *should* (!!) be fully functional.
-<!> There is very rudimentary error handling. Things can explode!
+<!> Still work in progress, but *should* (!!) be fully functional.
+<!> There is not that much error handling. Things can explode!
 NO WARRANTY OR GUARANTEE IS PROVIDED, USE AT YOUR OWN RISK.
 
 mg-download.sh - quirky little mega.nz downloader with quota bypass
-rev.5 for beta testing
+rev.6 for beta testing
 Usage: ./mg-download.sh FILE/FOLDER_LINK [Case/senstive/path/to/subfolder]
 
 Requirements:

@@ -7,7 +7,7 @@ trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
 
 ## Constants
 # Workers proxy to bypass quota (no trailing /, USE YOUR OWN!)
-PROXY="https://little-flower-ce56.wacky.workers.dev"
+PROXY="https://flat-resonance-cfdb.ililli.workers.dev"
 # Large file chunk size (2GiB)
 chunkSize=2147483648
 # Max concurrent downloads (for folders only)
@@ -21,7 +21,7 @@ function info {
   echo "Usage: ${0} LINK [RELATIVE/PATH/TO/FOLDER]"
   echo
   echo "mg-download.sh - weird as hell mega.nz downloader"
-  echo "rev.5 for beta testing | USE AT YOUR OWN RISK!"
+  echo "rev.6 for beta testing | USE AT YOUR OWN RISK!"
   echo "Please check attached README for detailed info and examples."
 }
 
