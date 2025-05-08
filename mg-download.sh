@@ -37,7 +37,7 @@ function checkFile {
     local fileSize=$(stat -c '%s' "${fileName}")
     # If bad, then error and halt.
     if [[ "${checkSize}" -ne "${fileSize}" ]]; then
-      echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (File exists, but size mismatch: expected ${fileSize}, got ${checkSize})"
+      echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (File exists, but size mismatch: expected ${checkSize}, got ${fileSize})"
       echo -e "\e[0;31mERROR\e[0m   | Delete the offending file to continue."
       exit 1
     else
