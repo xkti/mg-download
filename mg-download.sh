@@ -166,17 +166,28 @@ function folderFileDownload {
       # Current IV position
       chunkIv="${incrementIv[$i]}"
 
-      # Incomplete download resume if set
+      # Resume incomplete download if control file exists (see checkFile)
       if [[ -n "${controlFile}" ]]; then
+        # Check if position was recorded in control
         grep -q "${bytePosition[$i]}" "${controlFile}"
         if [[ $? -eq 0 ]]; then
           continue
         fi
-        if [[ "$(stat -c '%s' "${tmpName}.bin")" -eq "${endRange}" ]]; then
+        # Compare expected size with local size, and resume accordingly
+        localSize="$(stat -c '%s' "${tmpName}.bin")"
+        if [[ "${localSize}" -eq "${endRange}" ]]; then
+          echo -e "\e[0;33mCHUNKS\e[0m  | ${tmpName} (${i}/${#byteRange[@]} chunks complete. Resuming.)"
+          unset controlFile
+        # If file was interrupted during decryption (local larger than expected), truncate and resume.
+        elif [[ "${localSize}" -gt "${endRange}" ]]; then
+          echo -e "\e[0;33mNOTICE\e[0m  | ${tmpName} (Size mismatch, ${localSize} larger than ${endRange})"
+          echo -e "\e[0;33mNOTICE\e[0m  | I'm assuming this file was interrupted mid-decryption. Truncating and resuming."
+          truncate -c -s "${endRange}" "${tmpName}.bin"
           echo -e "\e[0;33mCHUNKS\e[0m  | ${tmpName} (${i}/${#byteRange[@]} chunks complete. Resuming.)"
           unset controlFile
         else
-          echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed. (Size mismatch, expected ${endRange}, got $(stat -c '%s' "${tmpName}.bin"))"
+          # I don't necessarily know if we need this, but it will stay.
+          echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed. (Size mismatch, expected ${endRange}, got $(localSize})"
           echo -e "\e[0;31mERROR\e[0m   | Unable to resume. Delete the offending file(s) to continue."
           # TODO make report file/log maybe? or just delete.
           exit 1
@@ -365,21 +376,32 @@ if [[ "${linkType}" == "file" ]]; then
 
       # Resume incomplete download if control file exists (see checkFile)
       if [[ -n "${controlFile}" ]]; then
+        # Check if position was recorded in control
         grep -q "${bytePosition[$i]}" "${controlFile}"
         if [[ $? -eq 0 ]]; then
           continue
         fi
-        # Check if sum of completed chunks match local file
-        if [[ "$(stat -c '%s' "${fileName}.bin")" -eq "${endRange}" ]]; then
+        # Compare expected size with local size, and resume accordingly
+        localSize="$(stat -c '%s' "${fileName}.bin")"
+        if [[ "${localSize}" -eq "${endRange}" ]]; then
+          echo -e "\e[0;33mCHUNKS\e[0m  | ${fileName} (${i}/${#byteRange[@]} chunks complete. Resuming.)"
+          unset controlFile
+        # If file was interrupted during decryption (local larger than expected), truncate and resume.
+        elif [[ "${localSize}" -gt "${endRange}" ]]; then
+          echo -e "\e[0;33mNOTICE\e[0m  | ${fileName} (Size mismatch, ${localSize} larger than ${endRange})"
+          echo -e "\e[0;33mNOTICE\e[0m  | I'm assuming this file was interrupted mid-decryption. Truncating and resuming."
+          truncate -c -s "${endRange}" "${fileName}.bin"
           echo -e "\e[0;33mCHUNKS\e[0m  | ${fileName} (${i}/${#byteRange[@]} chunks complete. Resuming.)"
           unset controlFile
         else
-          echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (Size mismatch, expected ${endRange}, got $(stat -c '%s' "${fileName}.bin"))"
+          # I don't necessarily know if we need this, but it will stay.
+          echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (Size mismatch, expected ${endRange}, got $(localSize})"
           echo -e "\e[0;31mERROR\e[0m   | Unable to resume. Delete the offending file(s) to continue."
-          # todo report to file for summary
+          # TODO make report file/log maybe? or just delete.
           exit 1
         fi
       fi
+
 
       # We need to fetch a new URL every time due to 60s expiry
       echo -e "\e[0;33mDOWNLOAD\e[0m| [Chunk $(( $i + 1 ))/${#byteRange[@]}] ${fileName}"
@@ -406,7 +428,7 @@ if [[ "${linkType}" == "file" ]]; then
     done
     mv "${fileName}.bin" "${fileName}"
     rm "${fileName}.control"
-    echo -e "\e[0;32mDONE\e[0m    | Finished!"
+    echo -e "\e[0;32mDONE\e[0m    | ${fileName}"
   else
   # Small file download
     echo -e "\e[0;33mDOWNLOAD\e[0m| ${fileName}"
