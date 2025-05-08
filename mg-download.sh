@@ -26,16 +26,15 @@ function info {
 }
 
 # Check for existing file and chunks
-# (1: file name, 2: file size)
+# (1: file name, 2: expected file size)
 function checkFile {
   local fileName="${1}"
-  local fileSize="${2}"
-  local id="${3}"
+  local checkSize="${2}"
 
   # If file exists...
   if [[ -f "${1}" ]]; then
     # Check local size with remote size
-    local checkSize=$(stat -c '%s' "${fileName}")
+    local fileSize=$(stat -c '%s' "${fileName}")
     # If bad, then error and halt.
     if [[ "${checkSize}" -ne "${fileSize}" ]]; then
       echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (File exists, but size mismatch: expected ${fileSize}, got ${checkSize})"
@@ -56,7 +55,7 @@ function checkFile {
     # in case the user interrupts the decryption, aria2 right before completion, etc.
     echo -e "\e[0;33mNOTICE\e[0m  | ${fileName} appears incomplete. Attempting resume. [BETA]"
     controlFile="${fileName}.control"
-  # If control files does NOT exist but decrypted chunk does..
+  # If control file does NOT exist but decrypted chunk does..
   elif [[ ! -f "${fileName}.control" ]] && [[ -f "${fileName}.bin" ]]; then
     # Silently remove decrypted chunk and let it continue
     # For edge case when only first chunk is done and it's mid-decrypting
