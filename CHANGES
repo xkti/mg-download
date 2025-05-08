@@ -1,3 +1,6 @@
+rev.6 -- replaced worker url to prepare for more widespread use
+         partial downloads will now truncate if size mismatches (decryption interrupted)
+         tweaked existing file function
 rev.5 -- added proper retry logic for downloading for files/folders
          removed file id from output, replacee with filename
          made output more verbose and consistent
