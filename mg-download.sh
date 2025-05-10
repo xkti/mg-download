@@ -265,7 +265,7 @@ function folderFileDownload {
 
 # Basic sanity check
 if [[ -z "${1}" ]]; then
-  echo "\e[0;31mERROR\e[0m   | No link specified."
+  echo -e "\e[0;31mERROR\e[0m   | No link specified.\n"
   info
   exit 2
 fi
