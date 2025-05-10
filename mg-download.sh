@@ -14,7 +14,7 @@ for i in "${commands[@]}"; do
     break
   done
 done
-if [[ "${ex}" -eq 1 ]]; then exit 1; fi
+if [[ -n "${ex}" ]]; then exit 1; fi
 
 ## Constants
 # Workers proxy to bypass quota (no trailing /, USE YOUR OWN!)
