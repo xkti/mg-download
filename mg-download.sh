@@ -5,6 +5,17 @@
 # Kills script if ctrl+c, without it loops continue iterating
 trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
 
+# Check for required commands
+commands=( aria2c base64 bc curl jq openssl truncate xxd )
+for i in "${commands[@]}"; do
+  until hash $i 2>/dev/null; do
+    echo -e "\e[0;31mERROR\e[0m   | ${i} not found! Please install all requirements."
+    ex=1
+    break
+  done
+done
+if [[ "${ex}" -eq 1 ]]; then exit 1; fi
+
 ## Constants
 # Workers proxy to bypass quota (no trailing /, USE YOUR OWN!)
 PROXY="https://flat-resonance-cfdb.ililli.workers.dev"
