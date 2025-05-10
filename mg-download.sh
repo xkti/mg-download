@@ -5,6 +5,16 @@
 # Kills script if ctrl+c, without it loops continue iterating
 trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
 
+## Constants
+# Workers proxy to bypass quota (no trailing /, USE YOUR OWN!)
+PROXY="https://flat-resonance-cfdb.ililli.workers.dev"
+# Large file chunk size (2GiB)
+chunkSize=2147483648
+# Max concurrent downloads (for folders only)
+maxThreads=4
+# Keep original IFS
+OIFS=$IFS
+
 # Check for required commands
 commands=( aria2c base64 bc curl jq openssl truncate xxd )
 for i in "${commands[@]}"; do
@@ -16,15 +26,6 @@ for i in "${commands[@]}"; do
 done
 if [[ -n "${ex}" ]]; then exit 1; fi
 
-## Constants
-# Workers proxy to bypass quota (no trailing /, USE YOUR OWN!)
-PROXY="https://flat-resonance-cfdb.ililli.workers.dev"
-# Large file chunk size (2GiB)
-chunkSize=2147483648
-# Max concurrent downloads (for folders only)
-maxThreads=4
-# Keep original IFS
-OIFS=$IFS
 
 ### Important functions
 # Basic info
