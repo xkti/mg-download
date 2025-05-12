@@ -1,3 +1,5 @@
+rev.7 -- added check for missing commands
+         cleaned up README
 rev.6 -- replaced worker url to prepare for more widespread use
          partial downloads will now truncate if size mismatches (decryption interrupted)
          tweaked existing file function

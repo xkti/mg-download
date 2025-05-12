@@ -3,7 +3,8 @@
 NO WARRANTY OR GUARANTEE IS PROVIDED, USE AT YOUR OWN RISK.
 
 mg-download.sh - quirky little mega.nz downloader with quota bypass
-rev.6 for beta testing
+rev.7 for beta testing
+
 Usage: ./mg-download.sh FILE/FOLDER_LINK [Case/senstive/path/to/subfolder]
 
 Requirements:
@@ -43,10 +44,6 @@ Limitations:
   handles the decryption (CTR) aspect of things. Files should be verified
   through checksums when available.
 
-- Partial download resuming can potentially corrupt files, especially if
-  the script was interrupted inbetween chunks and/or during decryption.
-  If you need to pause the download, do it while a chunk is downloading.
-
 - Downloads may be slow regardless of aria2. This is MEGA's fault, as one
   file may download at 1MiB/s while the next file could transfer at 100MiB/s
   or even higher.
@@ -76,4 +73,5 @@ Quota bypass:
       . Delete everything and paste the contents of index.js in.
       . Click "Deploy"
       . Copy worker URL and edit the PROXY variable in the script to use it.
-    4b. If you know your way around Workers/wrangler, simply deploy index.js.
+    4b. If you know your way around Workers/wrangler, simply deploy index.js
+        and replace PROXY="..." with your new worker URL. (No trailing slash)
