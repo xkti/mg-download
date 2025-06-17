@@ -77,7 +77,7 @@ function checkFile {
 
 # Check if response threw error
 function checkCode {
-  if [[ "${resBody}" =~ ^-?[0-9]+$ ]]; then
+  if [[ "${resBody}" =~ ^-?[0-9]+$ ]] || [[ "${resBody}" =~ ^\[-?[0-9]+\]$ ]]; then
     echo -e "\e[0;31mERROR\e[0m   | Got ${resBody} from API."
     echo -e "\e[0;31mERROR\e[0m   | Check https://github.com/meganz/sdk/blob/master/include/mega/types.h#L189 for info."
     exit 1
