@@ -277,7 +277,7 @@ KEY=$(echo "$1" | cut -f2 -d# | cut -f1 -d/ | tr '\-_' '+/')
 
 # Stupid sanity check
 if [[ -z "${ID}" ]] || [[ "${KEY}" == *":"* ]] || [[ -z "${KEY}" ]]; then
-  echo "\e[0;31mERROR\e[0m   | Bad URL."
+  echo -e "\e[0;31mERROR\e[0m   | Bad URL."
   exit 1
 fi
 
@@ -297,18 +297,18 @@ elif [[ "${linkType}" == "folder" ]]; then
   if [[ -n "${F6}" ]]; then
     if [[ "${F6}" == "file" ]]; then
       F7=$(echo "${1}" | cut -f7 -d/)
-      echo "\e[0;33mNOTICE\e[0m  | File detected in folder link. Downloading."
+      echo -e "\e[0;33mNOTICE\e[0m  | File detected in folder link. Downloading."
     elif [[ "${F6}" == "folder" ]]; then
-      echo "\e[0;31mERROR\e[0m   | Subfolder downloading by link isn't supported."
-      echo "\e[0;31mERROR\e[0m   | Please specify it as a path like so:"
-      echo "\e[0;31mERROR\e[0m   | ./${0} LINK \"Relative/path/without/trailing/slash\""
+      echo -e "\e[0;31mERROR\e[0m   | Subfolder downloading by link isn't supported."
+      echo -e "\e[0;31mERROR\e[0m   | Please specify it as a path like so:"
+      echo -e "\e[0;31mERROR\e[0m   | ./${0} LINK \"Relative/path/without/trailing/slash\""
       exit 1
     fi
   fi
 else
   # TODO: Handle legacy urls.
-  echo "\e[0;31mERROR\e[0m   | Can't determine whether link is a file or a folder."
-  echo "\e[0;31mERROR\e[0m   | Legacy URLs are not supported, sorry."
+  echo -e "\e[0;31mERROR\e[0m   | Can't determine whether link is a file or a folder."
+  echo -e "\e[0;31mERROR\e[0m   | Legacy URLs are not supported, sorry."
   exit 1
 fi
 
