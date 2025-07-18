@@ -3,7 +3,7 @@ rev.8 -- added part 1/2 of more link sanity checking
                - some error messages didn't output colour properly
                - api error code checking/detection
          clarified the subfolder downloading part in README
-         changed some wording in some messages/
+         changed some wording in some messages
 rev.7 -- added check for missing commands
          cleaned up README
 rev.6 -- replaced worker url to prepare for more widespread use
