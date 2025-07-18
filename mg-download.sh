@@ -661,6 +661,8 @@ else
     fi
     # Reassign listing array to just results
     theList=( "${searchList[@]}" )
+    # Unset fileHash array in order to iterate only through results
+    unset fileHash
     echo -e "\e[0;33mNOTICE\e[0m  | Found ${#theList[@]} match(es)!"
   fi
 
@@ -671,8 +673,7 @@ else
     IFS=$OIFS
     # Narrow down hash array after search
     if [[ -n "${relPath}" ]]; then
-      unset fileHash
-      fileHash=( "${h}" )
+      fileHash+=( "${h}" )
     fi
     fileAttr["${h}"]="${n}"
   done
