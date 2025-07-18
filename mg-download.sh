@@ -33,7 +33,7 @@ function info {
   echo "Usage: ${0} LINK [RELATIVE/PATH/TO/FOLDER]"
   echo
   echo "mg-download.sh - weird as hell mega.nz downloader"
-  echo "rev.7 for beta testing | USE AT YOUR OWN RISK!"
+  echo "rev.8 for beta testing | USE AT YOUR OWN RISK!"
   echo "Please check attached README for detailed info and examples."
 }
 
@@ -277,17 +277,27 @@ KEY=$(echo "$1" | cut -f2 -d# | cut -f1 -d/ | tr '\-_' '+/')
 
 # Stupid sanity check
 if [[ -z "${ID}" ]] || [[ "${KEY}" == *":"* ]] || [[ -z "${KEY}" ]]; then
-  echo -e "\e[0;31mERROR\e[0m   | Bad URL."
+  echo -e "\e[0;31mERROR\e[0m   | Invalid URL."
   exit 1
 fi
 
 # Check what type of link we're doing + okay-ish sanity check
 linkType=$(echo "${1}" | cut -f4 -d/)
 if [[ "${linkType}" == "file" ]]; then
+  # Check length of key
+  if [[ "${#KEY}" -ne 43 ]]; then
+    echo -e "\e[0;31mERROR\e[0m   | Invalid key length! Did you copy your link properly?"
+    exit 1
+  fi
   # Set API url and POST body
   API="https://g.api.mega.co.nz/cs"
   postBody="[{\"a\":\"g\",\"p\":\"${ID}\",\"g\":1}]"
 elif [[ "${linkType}" == "folder" ]]; then
+  # Check length of key
+  if [[ "${#KEY}" -ne 22 ]]; then
+    echo -e "\e[0;31mERROR\e[0m   | Invalid key length! Did you copy your link properly?"
+    exit 1
+  fi
   # Set API url and POST body
   API="https://g.api.mega.co.nz/cs?n=${ID}"
   postBody='[{"a":"f","c":1,"ca":1,"r":1}]'
@@ -317,7 +327,7 @@ if [[ -n "${2}" ]] && [[ "${linkType}" == "folder" ]]; then
   relPath="${2}"
   echo "Searching ${relPath} and downloading any match..."
 elif [[ -n "${2}" ]] && [[ "${linkType}" == "file" ]] || [[ "${F6}" == "file" ]]; then
-  echo "Warning: No point in having a path set, you're downloading a file!"
+  echo -e "\e[0;33mNOTICE\e[0m  | No point in having a path set, you're downloading a file!"
 fi
 
 ## Big ass if statement to handle file links and folder links.
