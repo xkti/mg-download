@@ -326,7 +326,7 @@ fi
 if [[ -n "${2}" ]] && [[ "${linkType}" == "folder" ]]; then
   relPath="${2}"
   echo "Searching ${relPath} and downloading any match..."
-elif [[ -n "${2}" ]] && [[ "${linkType}" == "file" ]] || [[ "${F6}" == "file" ]]; then
+elif [[ -n "${2}" ]] && [[ "${linkType}" == "file" ]] || [[ -n "${2}" ]] && [[ "${F6}" == "file" ]]; then
   echo -e "\e[0;33mNOTICE\e[0m  | No point in having a path set, you're downloading a file!"
 fi
 
