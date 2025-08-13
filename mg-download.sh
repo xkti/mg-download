@@ -274,6 +274,8 @@ fi
 # Split link to id and key
 ID=$(echo "$1" | cut -f1 -d# | cut -f5 -d/)
 KEY=$(echo "$1" | cut -f2 -d# | cut -f1 -d/ | tr '\-_' '+/')
+# Remove carriage return (e.g. Windows .txt + for loop)
+KEY="${KEY//$'\r'/}"
 
 # Stupid sanity check
 if [[ -z "${ID}" ]] || [[ "${KEY}" == *":"* ]] || [[ -z "${KEY}" ]]; then
