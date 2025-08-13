@@ -1,3 +1,5 @@
+rev.9 -- fixed - removed carriage return (\r) from windows text files
+               - file in folder path notice, would warn that path was set regardless
 rev.8 -- added part 1/2 of more link sanity checking
          fixed - subfolder downloading (only a singular file instead of all)
                - some error messages didn't output colour properly

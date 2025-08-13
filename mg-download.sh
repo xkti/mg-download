@@ -3,6 +3,7 @@
 # Uncomment for debug
 #set -x
 # Kills script if ctrl+c, without it loops continue iterating
+# TODO: This is buggy, and doesn't really work.
 trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
 
 ## Constants
@@ -33,7 +34,7 @@ function info {
   echo "Usage: ${0} LINK [RELATIVE/PATH/TO/FOLDER]"
   echo
   echo "mg-download.sh - weird as hell mega.nz downloader"
-  echo "rev.8 for beta testing | USE AT YOUR OWN RISK!"
+  echo "rev.9 for beta testing | USE AT YOUR OWN RISK!"
   echo "Please check attached README for detailed info and examples."
 }
 

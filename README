@@ -3,7 +3,7 @@
 NO WARRANTY OR GUARANTEE IS PROVIDED, USE AT YOUR OWN RISK.
 
 mg-download.sh - quirky little mega.nz downloader with quota bypass
-rev.8 for beta testing
+rev.9 for beta testing
 
 Usage: ./mg-download.sh FILE/FOLDER_LINK [Case/senstive/path/to/subfolder]
 
@@ -39,6 +39,10 @@ Supported links:
   BAD ./mg-download.sh https://mega.nz/folder/xxx#xxxxxx 'some/folder/'
   BAD ./mg-download.sh https://mega.nz/folder/xxx#xxxxxx '/another/thing/'
   BAD ./mg-download.sh https://mega.nz/folder/xxx#xxxxxx/folder/xxxxxx
+
+Known issues:
+- Closing/interrupting the script doesn't really gracefully close.
+  I don't know how to get around this for the time being.
 
 Limitations:
 - MEGA uses AES-128-CCM (CTR + CBC-MAC) to de/encrypt and verify files.
