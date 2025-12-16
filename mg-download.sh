@@ -474,7 +474,7 @@ if [[ "${linkType}" == "file" ]]; then
     echo "DECRYPT | ${fileName}"
     decryptFile "${fileKey}" "${fileIv}" "${fileName}"
     rm "${fileName}.enc"
-    echo -e "\e[0;32mDONE\e[0m    | ${tmpName}"
+    echo -e "\e[0;32mDONE\e[0m    | ${fileName}"
   fi
 else
   # Folder download
