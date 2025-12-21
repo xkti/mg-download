@@ -200,7 +200,7 @@ function folderFileDownload {
           unset controlFile
         else
           # I don't necessarily know if we need this, but it will stay.
-          echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed. (Size mismatch, expected ${endRange}, got $(localSize})"
+          echo -e "\e[0;31mERROR\e[0m   | ${tmpName} failed. (Size mismatch, expected ${endRange}, got ${localSize})"
           echo -e "\e[0;31mERROR\e[0m   | Unable to resume. Delete the offending file(s) to continue."
           # TODO make report file/log maybe? or just delete.
           exit 1
@@ -420,7 +420,7 @@ if [[ "${linkType}" == "file" ]]; then
           unset controlFile
         else
           # I don't necessarily know if we need this, but it will stay.
-          echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (Size mismatch, expected ${endRange}, got $(localSize})"
+          echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (Size mismatch, expected ${endRange}, got ${localSize})"
           echo -e "\e[0;31mERROR\e[0m   | Unable to resume. Delete the offending file(s) to continue."
           # TODO make report file/log maybe? or just delete.
           exit 1
