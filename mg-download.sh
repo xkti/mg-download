@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Uncomment for debug
 #set -x
@@ -9,8 +9,8 @@ trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
 ## Constants
 # Workers proxy to bypass quota (no trailing /, USE YOUR OWN!)
 PROXY="https://flat-resonance-cfdb.ililli.workers.dev"
-# Large file chunk size (2GiB)
-chunkSize=2147483648
+# Large file chunk size (1GiB)
+chunkSize=1073741824
 # Max concurrent downloads (for folders only)
 maxThreads=4
 # Keep original IFS
