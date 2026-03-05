@@ -44,6 +44,10 @@ Known issues:
 - Closing/interrupting the script doesn't really gracefully close.
   I don't know how to get around this for the time being.
 
+- aria2 can sometimes fail with code 22. More often than not, it will be
+  MEGA reporting 509 Bandwidth Limit Exceeded. You can check aria2c.log
+  to find the exact cause.
+
 Limitations:
 - MEGA uses AES-128-CCM (CTR + CBC-MAC) to de/encrypt and verify files.
   Due to openssl's command-line limitations and my own, this script only
