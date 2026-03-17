@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Uncomment for debug
-set -x
+#set -x
 # Kills script if ctrl+c, without it loops continue iterating
 # TODO: This is buggy, and doesn't really work.
 trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
