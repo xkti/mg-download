@@ -2,6 +2,8 @@
 
 # Uncomment for debug
 #set -x
+# Return error code if pipe fails
+set -o pipefail
 # Kills script if ctrl+c, without it loops continue iterating
 # TODO: This is buggy, and doesn't really work.
 trap "kill $(jobs -p) 2>/dev/null; exit 130" SIGINT
@@ -558,6 +560,11 @@ else
       openssl enc -aes-128-ecb -d -K "${fKey}" -nopad 2>/dev/null |
       xxd -pu
     )
+    # Fail and exit immediately if folder key decryption fails.
+    if [[ $? -ne 0 ]]; then
+      echo -e "\e[0;31mERROR\e[0m   | Couldn't decrypt folder key! Report issue with problematic link."
+      exit 1
+    fi
 
     # Decrypt attributes and get name
     # AES-128-CBC with IV of 0
