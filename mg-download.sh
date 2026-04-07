@@ -565,11 +565,6 @@ else
       openssl enc -aes-128-ecb -d -K "${fKey}" -nopad 2>/dev/null |
       xxd -pu
     )
-    # Fail and exit immediately if folder key decryption fails.
-    if [[ $? -ne 0 ]]; then
-      echo -e "\e[0;31mERROR\e[0m   | Couldn't decrypt folder key! Report issue with problematic link."
-      exit 1
-    fi
 
     # Decrypt attributes and get name
     # AES-128-CBC with IV of 0
