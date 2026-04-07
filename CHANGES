@@ -1,3 +1,7 @@
+r.11  -- fixed - fixed folder downloading. for some reason, mega will have
+                 multiple handles and their respective keys in its .k key.
+                 the script now searches for the correct key and uses it.
+                 this fixes #1.
 r.10  -- added - replaced #!/bin/bash with #!/usr/bin/env bash for nixos users
                  and for more portability across distros.
                - aria2 logging for better error investigation.

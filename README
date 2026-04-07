@@ -1,11 +1,9 @@
-!!!!!!!!!!! THIS TOOL IS BROKEN FOR THE TIME BEING. SEE ISSUES. !!!!!!!!!!!!
-
 <!> Still work in progress, but *should* (!!) be fully functional.
 <!> There is not that much error handling. Things can explode!
 NO WARRANTY OR GUARANTEE IS PROVIDED, USE AT YOUR OWN RISK.
 
 mg-download.sh - quirky little mega.nz downloader with quota bypass
-rev.10 for beta testing
+rev.11 for beta testing
 
 Usage: ./mg-download.sh FILE/FOLDER_LINK [Case/senstive/path/to/subfolder]
 
@@ -49,11 +47,6 @@ Known issues:
 - aria2 can sometimes fail with code 22. More often than not, it will be
   MEGA reporting 509 Bandwidth Limit Exceeded. You can check aria2c.log
   to find the exact cause.
-
-- MEGA changed their API response for folders, adding an additional value
-  in the encrypted key entry. Megabasterd has this hardcoded to the 2nd
-  entry, when the key is now the 3rd entry. My script has been fixed so
-  you will not experience this issue, unless MEGA changes it again.
 
 Limitations:
 - MEGA uses AES-128-CCM (CTR + CBC-MAC) to de/encrypt and verify files.

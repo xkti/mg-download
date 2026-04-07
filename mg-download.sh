@@ -36,7 +36,7 @@ function info {
   echo "Usage: ${0} LINK [RELATIVE/PATH/TO/FOLDER]"
   echo
   echo "mg-download.sh - weird as hell mega.nz downloader"
-  echo "rev.9 for beta testing | USE AT YOUR OWN RISK!"
+  echo "rev.11 for beta testing | USE AT YOUR OWN RISK!"
   echo "Please check attached README for detailed info and examples."
 }
 
@@ -489,31 +489,36 @@ else
   resBody=$(curl -s --compressed -XPOST -d "${postBody}" "${API}")
   checkCode
 
+  # Get root/parent handle, we need this to fetch the right key (if needed)
+  # For some folders, there will be multiple keys, so this allows the script
+  # to dynamically find and use the right one.
+  rootHandle=$(echo "${resBody}" | jq -r '.[].f[0].h')
+
   # Create array of folders as delimited strings containing:
   # .h (handle/id), .a (attributes [name]), .k (key) .p (parent handle)
   # (b64c function: clean url-safe base64 to standard base64)
   folderArray=( $(
     echo "${resBody}" |
-    jq -r '
+    jq -r --arg root "${rootHandle}" '
       def b64c: gsub("-"; "+") | gsub("_"; "/");
       .[].f[] |
       select(.t==1) |
         .h + "@" +
         (.a | b64c) + "@" +
-        (.k | split(":")[-1] | b64c) + "@" +
+        (.k | split("/")[] | select(startswith($root)) | split(":")[1] | b64c) + "@" +
         .p
     '
   ) )
   # same as above but for files + .s (size)
   fileArray=( $(
     echo "${resBody}" |
-    jq -r '
+    jq -r --arg root "${rootHandle}" '
       def b64c: gsub("-"; "+") | gsub("_"; "/");
       .[].f[] |
       select(.t==0) |
         .h + "@" +
         (.a | b64c) + "@" +
-        (.k | split(":")[-1] | b64c) + "@" +
+        (.k | split("/")[] | select(startswith($root)) | split(":")[1] | b64c) + "@" +
         .p + "@" +
         (.s | tostring)
     '
