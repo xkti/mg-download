@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Uncomment for debug
-#set -x
+set -x
 # Return error code if pipe fails
 set -o pipefail
 # Kills script if ctrl+c, without it loops continue iterating
@@ -385,15 +385,17 @@ if [[ "${linkType}" == "file" ]]; then
 
   # Decrypt metadata
   fileName=$(
-    b64pad "${fileMetadata}" |
-    cut -f1 -d@ |
+    b64pad $(
+      echo "${fileMetadata}" |
+      cut -f1 -d@
+    ) |
     base64 -d |
     openssl enc -aes-128-cbc -d -K "${fileKey}" -iv 0 -nopad 2>/dev/null |
     tr -d '\0' |
     cut -c5- |
     jq -r .n
   )
-  fileSize=$( echo "${fileMetadata}" | cut -f2 -d@ )
+  fileSize=$( b64pad $( echo "${fileMetadata}" | cut -f2 -d@ ) )
 
   # Check for existing file, chunks
   checkFile "${fileName}" "${fileSize}" "${ID}"
