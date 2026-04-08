@@ -398,7 +398,7 @@ if [[ "${linkType}" == "file" ]]; then
     cut -c5- |
     jq -r .n
   )
-  fileSize=$( b64pad $( echo "${fileMetadata}" | cut -f2 -d@ ) )
+  fileSize=$( echo "${fileMetadata}" | cut -f2 -d@ )
 
   # Check for existing file, chunks
   checkFile "${fileName}" "${fileSize}" "${ID}"
