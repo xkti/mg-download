@@ -87,6 +87,19 @@ function checkCode {
   fi
 }
 
+# Add padding to base64 input
+function b64pad {
+  local str="${1}"
+  local len="$((${#1} % 4))"
+  if [[ $len -eq 2 ]]; then
+    echo -n "${str}=="
+  elif [[ $len -eq 3 ]]; then
+    echo -n "${str}="
+  else
+    echo -n "${str}"
+  fi
+}
+
 # Prepare byte ranges, chunk positions, IV for large files
 # (1: chunk size, 2: file size, 3: IV)
 function largeFileInit {
@@ -342,7 +355,7 @@ fi
 # We're only handling one file so we can not parallelize it.
 if [[ "${linkType}" == "file" ]]; then
   # Get full key.
-  hexKey=$(echo "${KEY}" | base64 -d 2>/dev/null | xxd -pu -c32)
+  hexKey=$(b64pad "${KEY}" | base64 -d | xxd -pu -c32)
   hexKey="${hexKey^^}"
   # Get AES decryption key with XOR magic (read page 24 of whitepaper)
   fileKey=$(
@@ -372,9 +385,9 @@ if [[ "${linkType}" == "file" ]]; then
 
   # Decrypt metadata
   fileName=$(
-    echo "${fileMetadata}" |
+    b64pad "${fileMetadata}" |
     cut -f1 -d@ |
-    base64 -d 2>/dev/null |
+    base64 -d |
     openssl enc -aes-128-cbc -d -K "${fileKey}" -iv 0 -nopad 2>/dev/null |
     tr -d '\0' |
     cut -c5- |
@@ -483,7 +496,7 @@ if [[ "${linkType}" == "file" ]]; then
 else
   # Folder download
   # Key to hex
-  fKey=$(echo "${KEY}" | base64 -d 2>/dev/null | xxd -pu)
+  fKey=$(b64pad "${KEY}" | base64 -d | xxd -pu)
 
   # Send API request
   resBody=$(curl -s --compressed -XPOST -d "${postBody}" "${API}")
@@ -560,8 +573,8 @@ else
     # Folder decryption keys
     # AES-128-ECB
     folderKey["${i}"]=$(
-      echo "${folderKey[$i]}" |
-      base64 -d 2>/dev/null |
+      b64pad "${folderKey[$i]}" |
+      base64 -d |
       openssl enc -aes-128-ecb -d -K "${fKey}" -nopad 2>/dev/null |
       xxd -pu
     )
@@ -569,8 +582,8 @@ else
     # Decrypt attributes and get name
     # AES-128-CBC with IV of 0
     folderAttr["${i}"]=$(
-      echo "${folderAttr[$i]}" |
-      base64 -d 2>/dev/null |
+      b64pad "${folderAttr[$i]}" |
+      base64 -d |
       openssl enc -aes-128-cbc -d -K "${folderKey[$i]}" -iv 0 -nopad 2>/dev/null |
       cut -c5- |
       tr -d '\0' |
@@ -619,8 +632,8 @@ else
     # Decrypt full file key
     # AES-128-ECB
     fileKey["${i}"]=$(
-      echo "${fileKey[$i]}" |
-      base64 -d 2>/dev/null |
+      b64pad "${fileKey[$i]}" |
+      base64 -d |
       openssl enc -aes-128-ecb -d -K "${fKey}" -nopad 2>/dev/null |
       xxd -pu -c32
     )
@@ -637,8 +650,8 @@ else
     # Decrypt attributes and get name
     # AES-128-CBC with IV of 0
     fileAttr["${i}"]=$(
-      echo "${fileAttr[$i]}" |
-      base64 -d 2>/dev/null |
+      b64pad "${fileAttr[$i]}" |
+      base64 -d |
       openssl enc -aes-128-cbc -d -K "${fileKey[$i]}" -iv 0 -nopad 2>/dev/null |
       cut -c5- |
       tr -d '\0' |
