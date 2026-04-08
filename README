@@ -6,6 +6,7 @@ mg-download.sh - quirky little mega.nz downloader with quota bypass
 rev.11 for beta testing
 
 Usage: ./mg-download.sh FILE/FOLDER_LINK [Case/senstive/path/to/subfolder]
+To enable debug logs, add MGDL_DEBUG=1 to the beginning of your command.
 
 Requirements:
   aria2

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-# Uncomment for debug
-set -x
+# Debug flag check
+if [[ "${MGDL_DEBUG}" -eq 1 ]]; then
+  set -x
+fi
+
 # Return error code if pipe fails
 set -o pipefail
 # Kills script if ctrl+c, without it loops continue iterating
