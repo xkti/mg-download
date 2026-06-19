@@ -3,7 +3,7 @@
 NO WARRANTY OR GUARANTEE IS PROVIDED, USE AT YOUR OWN RISK.
 
 mg-download.sh - quirky little mega.nz downloader with quota bypass
-rev.11 for beta testing
+rev.12 for beta testing
 
 Usage: ./mg-download.sh FILE/FOLDER_LINK [Case/senstive/path/to/subfolder]
 To enable debug logs, add MGDL_DEBUG=1 to the beginning of your command.
@@ -24,6 +24,7 @@ Features:
   Partial download resume support
   Download acceleration with aria2
   Multiple concurrent downloads
+  Optional file verification with mg-verify (see File verification section below)
 
 Supported links:
   File:      ./mg-download.sh https://mega.nz/file/xxx#xxxxxx
@@ -41,6 +42,16 @@ Supported links:
   BAD ./mg-download.sh https://mega.nz/folder/xxx#xxxxxx '/another/thing/'
   BAD ./mg-download.sh https://mega.nz/folder/xxx#xxxxxx/folder/xxxxxx
 
+File verification:
+- DISCLAIMER: This tool was entirely vibecoded and is entirely optional.
+- Code + linux binary: https://github.com/xkti/mg-verify
+- Place mg-verify in your PATH (and chmod +x it!) for the script to detect it.
+  This is a small tool that will handle the CBC-MAC aspect of MEGA's encryption,
+  allowing us to verify if the files downloaded are intact and complete. If
+  files are corrupt, the script will delete and try downloading the file again.
+- If you are downloading a link for the first time, you will need to run
+  mg-download again to actually verify the file(s).
+
 Known issues:
 - Closing/interrupting the script doesn't really gracefully close.
   I don't know how to get around this for the time being.
@@ -50,11 +61,6 @@ Known issues:
   to find the exact cause.
 
 Limitations:
-- MEGA uses AES-128-CCM (CTR + CBC-MAC) to de/encrypt and verify files.
-  Due to openssl's command-line limitations and my own, this script only
-  handles the decryption (CTR) aspect of things. Files should be verified
-  through checksums when available.
-
 - Downloads may be slow regardless of aria2. This is MEGA's fault, as one
   file may download at 1MiB/s while the next file could transfer at 100MiB/s
   or even higher.

@@ -32,6 +32,11 @@ for i in "${commands[@]}"; do
 done
 if [[ -n "${ex}" ]]; then exit 1; fi
 
+# Bonus file verification check if mg-verify is found
+if hash mg-verify 2>/dev/null; then
+  verify=1
+  echo -e "\e[0;33mNOTICE\e[0m  | mg-verify detected. Files will be verified if downloaded already. If not, run mg-download again."
+fi
 
 ### Important functions
 # Basic info
@@ -48,6 +53,7 @@ function info {
 function checkFile {
   local fileName="${1}"
   local checkSize="${2}"
+  local fileKey="${3}"
 
   # If file exists...
   if [[ -f "${1}" ]]; then
@@ -56,13 +62,26 @@ function checkFile {
     # If bad, then error and halt.
     if [[ "${checkSize}" -ne "${fileSize}" ]]; then
       echo -e "\e[0;31mERROR\e[0m   | ${fileName} failed. (File exists, but size mismatch: expected ${checkSize}, got ${fileSize})"
-      echo -e "\e[0;31mERROR\e[0m   | Delete the offending file to continue."
-      exit 1
+      echo -e "\e[0;31mERROR\e[0m   | Deleting and retrying."
+      rm "${fileName}"
+    # If mg-verify exists, then verify file.
+    elif [[ "${verify}" -eq 1 ]]; then
+      echo -e "\e[0;33mVERIFY\e[0m  | Verifying ${fileName}..."
+      mg-verify -s "${fileName}" "${fileKey}"
+      if [[ $? -ne 0 ]]; then
+        echo -e "\e[0;31mERROR\e[0m   | ${fileName} is corrupt! (MAC mismatch)"
+        echo -e "\e[0;31mERROR\e[0m   | Deleting and retrying."
+        rm "${fileName}"
+      else
+        echo -e "\e[0;32mDONE\e[0m    | Verified ${fileName}."
+        SKIP=1
+      fi
+    # Otherwise, call it good and move on.
     else
-      # If good, just skip.
       echo -e "\e[0;33mNOTICE\e[0m  | ${fileName} already exists. Skipping."
       SKIP=1
     fi
+
   # If control file exists...
   elif [[ -f "${fileName}.control" ]]; then
     # Prepare for resume download.
@@ -180,8 +199,9 @@ function folderFileDownload {
   tmpName="${fileAttr[$index]}"
   tmpKey="${fileKey[$index]}"
   tmpIv="${fileIv[$index]}"
+  tmpVerify="${fileVerify[$index]}"
 
-  checkFile "${tmpName}" "${tmpSize}" "${index}"
+  checkFile "${tmpName}" "${tmpSize}" "${tmpVerify}"
   if [[ "${SKIP}" -eq 1 ]]; then return; fi
 
   # If file is larger than our set chunk size, then begin chunked download
@@ -292,10 +312,12 @@ if [[ -z "${1}" ]]; then
   exit 2
 fi
 
-# Split link to id and key
+# Split link to id and key x2 (parsing, verification respectively)
 ID=$(echo "$1" | cut -f1 -d# | cut -f5 -d/)
+vKEY=$(echo "$1" | cut -f2 -d# | cut -f1 -d/)
 KEY=$(echo "$1" | cut -f2 -d# | cut -f1 -d/ | tr '\-_' '+/')
 # Remove carriage return (e.g. Windows .txt + for loop)
+vKEY="${vKEY//$'\r'/}"
 KEY="${KEY//$'\r'/}"
 
 # Stupid sanity check
@@ -401,7 +423,7 @@ if [[ "${linkType}" == "file" ]]; then
   fileSize=$( echo "${fileMetadata}" | cut -f2 -d@ )
 
   # Check for existing file, chunks
-  checkFile "${fileName}" "${fileSize}" "${ID}"
+  checkFile "${fileName}" "${fileSize}" "${vKEY}"
   if [[ "${SKIP}" -eq 1 ]]; then exit; fi
 
   # Big file download
@@ -607,6 +629,7 @@ else
   # Declare file associative arrays
   declare -A fileAttr
   declare -A fileKey
+  declare -A fileVerify
   declare -A fileIv
   declare -A fileParent
   declare -A fileSize
@@ -642,6 +665,8 @@ else
       openssl enc -aes-128-ecb -d -K "${fKey}" -nopad 2>/dev/null |
       xxd -pu -c32
     )
+    # Convert decrypted key back into MEGA's URL-safe base64 key for verification
+    fileVerify["${i}"]=$( echo "${fileKey[${i}]}" | xxd -r -p | base64 | tr '+/' '-_' | tr -d '=' )
     # Get IV (nonce) and make uppercase for bc (assuming file is large)
     fileIv["${i}"]="${fileKey[$i]:32:16}0000000000000000"
     fileIv["${i}"]="${fileIv[$i]^^}"
